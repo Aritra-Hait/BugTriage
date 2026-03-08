@@ -4,7 +4,7 @@ import toast from "react-hot-toast"
 import { Route, Routes } from 'react-router-dom'
 import Home from './pages/Home.jsx'
 import Login from './pages/Login.jsx'
-import Signup from './pages/Signup.jsx'
+import Signup from './pages/SignUp.jsx'
 import CreateTeam from './pages/CreateTeam.jsx'
 import JoinTeam from './pages/JoinTeam.jsx'
 import TeamDashboard from './components/TeamDashboard.jsx'
