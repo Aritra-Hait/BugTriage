@@ -1,0 +1,3 @@
+BugTriage is a full-stack bug triage platform that enables teams to report, categorize, prioritize, and track software issues through an interactive dashboard. It ranks bugs using a severity-weighted priority scoring system with aging factors to ensure critical issues are addressed while preventing starvation of long-pending bugs.
+
+Tech Stack: React, Tailwind CSS, Node.js, Express.js, MongoDB, JWT Authentication
