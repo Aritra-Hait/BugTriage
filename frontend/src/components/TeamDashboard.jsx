@@ -232,7 +232,7 @@ const TeamDashboard = () => {
 
                         <div className="grid grid-cols-12 px-4 sm:px-6 py-3 text-xs sm:text-sm text-slate-800 border-b border-slate-200 min-w-[150px]">
                             <div className="col-span-3 sm:col-span-5">Title</div>
-                            <div className="col-span-3">Severity</div>        {/* increased from 2 → 3 */}
+                            <div className="col-span-3 sm:col-span-2">Severity</div>        {/* increased from 2 → 3 */}
                             <div className="col-span-3 sm:col-span-3">Reported By</div> {/* increased from 2 → 3 */}
                             <div className="col-span-2 text-center">Actions</div>
                         </div>
@@ -259,7 +259,7 @@ const TeamDashboard = () => {
                                     {bug.title}
                                 </Link>
 
-                                <div className="col-span-3">
+                                <div className="col-span-3 sm:col-span-2">
                                     <span className={`text-xs px-2 py-1 rounded font-medium ${severityStyles[bug.severity]}`}>
                                         {bug.severity}
                                     </span>
@@ -342,7 +342,7 @@ const TeamDashboard = () => {
 
                         <div className="grid grid-cols-12 px-4 sm:px-6 py-3 text-xs sm:text-sm text-slate-800 border-b border-slate-200 min-w-[150px]">
                             <div className="col-span-3 sm:col-span-5">Title</div>
-                            <div className="col-span-3">Severity</div>        {/* increased from 2 → 3 */}
+                            <div className="col-span-3 sm:col-span-2">Severity</div>        {/* increased from 2 → 3 */}
                             <div className="col-span-3 sm:col-span-3">Reported By</div> {/* increased from 2 → 3 */}
                             <div className="col-span-2 text-center">Actions</div>
                         </div>
@@ -363,7 +363,7 @@ const TeamDashboard = () => {
                                     {bug.title}
                                 </Link>
 
-                                <div className="col-span-3">
+                                <div className="col-span-3 sm:col-span-2">
                                     <span className={`text-xs px-2 py-1 rounded font-medium ${severityStyles[bug.severity]}`}>
                                         {bug.severity}
                                     </span>
