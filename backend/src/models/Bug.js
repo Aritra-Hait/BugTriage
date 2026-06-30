@@ -18,7 +18,7 @@ const BugSchema = new mongoose.Schema({
 
     status: {
         type: String,
-        enum: ["OPEN", "RESOLVED"],
+        enum: ["OPEN", "IN_PROGRESS", "RESOLVED"],
         default: "OPEN"
     },
 
@@ -33,6 +33,11 @@ const BugSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
         required: true
+    },
+    assignedTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null
     }
 
 }, { timestamps: true });

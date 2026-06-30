@@ -2,7 +2,7 @@ import React from "react";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
 import api from "../axios.js";
-import { Bug, Check, Trash2, Copy, ArrowLeftIcon } from "lucide-react";
+import { Bug, Check, Trash2, Copy, ArrowLeftIcon, UserCheck, XCircle } from "lucide-react";
 import Navbar from "./Navbar.jsx";
 import toast from "react-hot-toast";
 
@@ -58,6 +58,7 @@ const TeamDashboard = () => {
     }, [teamId, team]);
 
     const openBugs = useMemo(() => bugs.filter(bug => bug.status === "OPEN"), [bugs]);
+    const inProgressBugs = useMemo(() => bugs.filter(bug => bug.status === "IN_PROGRESS"), [bugs]);
     const resolvedBugs = useMemo(() => bugs.filter(bug => bug.status === "RESOLVED"), [bugs]);
 
     const handleResolveBug = async (bugId) => {
@@ -85,6 +86,36 @@ const TeamDashboard = () => {
             toast.error("Failed to delete bug");
         }
     };
+
+    const handleAssignBug = async (bugId) => {
+        if (!window.confirm("Are you sure you want to assign this bug to yourself?")) return;
+        try {
+            const { data } = await api.patch(`/bugs/${bugId}/assign`);
+            toast.success("Bug assigned to you!");
+            setBugs(prev => prev.map(bug =>
+                bug._id === bugId ? { ...bug, ...data } : bug
+            ));
+        } catch (err) {
+            const message = err.response?.data?.message || "Failed to assign bug";
+            toast.error(message);
+            console.error("Error assigning bug", err);
+        }
+    };
+
+    const handleDropBug = async (bugId) => {
+        if (!window.confirm("Drop this bug back to the pool?")) return;
+        try {
+            const { data } = await api.patch(`/bugs/${bugId}/unassign`);
+            toast.success("Bug dropped back to open");
+            setBugs(prev => prev.map(bug =>
+                bug._id === bugId ? { ...bug, ...data } : bug
+            ));
+        } catch (err) {
+            toast.error("Failed to drop bug");
+            console.error("Error dropping bug", err);
+        }
+    };
+
 
     const copyToClipboard = async (text) => {
         try {
@@ -266,7 +297,111 @@ const TeamDashboard = () => {
                                 </div>
 
                                 <div className="col-span-3 sm:col-span-3 text-slate-800 font-medium">
-                                    {bug.reportedBy?.name}
+                                    {bug.userName}
+                                </div>
+
+                                <div className="col-span-2 flex justify-center gap-2 sm:gap-4">
+
+                                    <div className="relative group">
+                                        <button
+                                            onClick={() => handleAssignBug(bug._id)}
+                                            className="p-2 rounded-md hover:cursor-pointer hover:bg-blue-100 hover:text-blue-800 text-blue-600 transition"
+                                        >
+                                            <UserCheck className="w-4 h-4" />
+                                        </button>
+                                        <span className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 whitespace-nowrap
+bg-slate-800 text-white text-xs px-2 py-1 rounded transition">
+                                            Take this bug
+                                        </span>
+                                    </div>
+
+                                    <div className="relative group">
+                                        <button
+                                            onClick={() => handleDeleteBug(bug._id)}
+                                            className="p-2 rounded-md hover:bg-red-100 hover:cursor-pointer text-red-600 transition"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                        <span className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 whitespace-nowrap
+bg-slate-800 text-white text-xs px-2 py-1 rounded transition">
+                                            Delete bug
+                                        </span>
+                                    </div>
+
+                                </div>
+                            </div>
+                        ))}
+
+                    </div>
+
+                </div>
+
+                {/* IN-PROGRESS BUGS */}
+
+                <div className="mt-5 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+
+                    <div className="px-4 sm:px-6 py-4 border-b border-slate-200">
+
+                        <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+
+                            <h2 className="text-base sm:text-lg font-semibold text-slate-800">
+                                In-Progress Bugs
+                            </h2>
+
+                            <span className="bg-slate-100 text-black text-xs px-2 py-1 rounded">
+                                {inProgressBugs.length}
+                            </span>
+
+                            <span className="text-xs sm:text-sm text-slate-700">
+                                • Sorted by priority score
+                            </span>
+                        </div>
+
+                        <p className="mt-1 ml-6 text-xs sm:text-sm text-slate-500">
+                            Click a bug title to view details.
+                        </p>
+
+                    </div>
+                    <div className="overflow-x-auto">
+
+                        <div className="grid grid-cols-12 px-4 sm:px-6 py-3 text-xs sm:text-sm text-slate-800 border-b border-slate-200 min-w-[150px]">
+                            <div className="col-span-3 sm:col-span-5">Title</div>
+                            <div className="col-span-3 sm:col-span-2">Severity</div>        {/* increased from 2 → 3 */}
+                            <div className="col-span-3 sm:col-span-3">Assigned To</div> {/* increased from 2 → 3 */}
+                            <div className="col-span-2 text-center">Actions</div>
+                        </div>
+
+                        {loadingBugs && (
+                            <div className="px-6 py-8 text-center text-slate-500">
+                                Loading bugs...
+                            </div>
+                        )}
+
+                        {!loadingBugs && inProgressBugs.length === 0 && (
+                            <div className="px-6 py-8 text-center text-slate-500">
+                                No in-progress bugs.
+                            </div>
+                        )}
+
+                        {inProgressBugs.map((bug) => (
+                            <div
+                                key={bug._id}
+                                className="grid grid-cols-12 px-4 sm:px-6 py-4 items-center border-b border-slate-100 hover:bg-slate-50 transition text-xs sm:text-sm min-w-[150px]"
+                            >
+
+                                <Link to={`/teams/${teamId}/bug/${bug._id}`} state={{ bug }} className="col-span-3 sm:col-span-5 text-slate-900 font-medium">
+                                    {bug.title}
+                                </Link>
+
+                                <div className="col-span-3 sm:col-span-2">
+                                    <span className={`text-xs px-2 py-1 rounded font-medium ${severityStyles[bug.severity]}`}>
+                                        {bug.severity}
+                                    </span>
+                                </div>
+
+                                <div className="col-span-3 sm:col-span-3 text-slate-800 font-medium">
+                                    {bug.assigneeName}
                                 </div>
 
                                 <div className="col-span-2 flex justify-center gap-2 sm:gap-4">
@@ -279,36 +414,32 @@ const TeamDashboard = () => {
                                             <Check className="w-4 h-4" />
                                         </button>
                                         <span className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 whitespace-nowrap
-                                bg-slate-800 text-white text-xs px-2 py-1 rounded transition">
+bg-slate-800 text-white text-xs px-2 py-1 rounded transition">
                                             Mark bug as resolved
                                         </span>
                                     </div>
 
                                     <div className="relative group">
-
                                         <button
-                                            onClick={() => handleDeleteBug(bug._id)}
+                                            onClick={() => handleDropBug(bug._id)}
                                             className="p-2 rounded-md hover:bg-red-100 hover:cursor-pointer text-red-600 transition"
                                         >
-                                            <Trash2 className="w-4 h-4" />
+                                            <XCircle className="w-4 h-4" />
                                         </button>
-
                                         <span className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 whitespace-nowrap
-                                bg-slate-800 text-white text-xs px-2 py-1 rounded transition">
-                                            Delete bug
+bg-slate-800 text-white text-xs px-2 py-1 rounded transition">
+                                            Drop bug
                                         </span>
                                     </div>
 
-
-
                                 </div>
-
                             </div>
                         ))}
 
                     </div>
 
                 </div>
+
 
                 {/* RESOLVED BUGS */}
 
@@ -370,7 +501,7 @@ const TeamDashboard = () => {
                                 </div>
 
                                 <div className="col-span-3 sm:col-span-3 text-slate-800 font-medium">
-                                    {bug.reportedBy?.name}
+                                    {bug.userName}
                                 </div>
 
                                 <div className="col-span-2 flex justify-center">
