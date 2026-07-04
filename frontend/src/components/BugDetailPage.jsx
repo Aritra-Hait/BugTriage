@@ -20,7 +20,7 @@ const statusStyles = {
 };
 
 export default function BugDetailPage() {
-    const { bugId } = useParams();
+    const { teamId, bugId } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -28,16 +28,16 @@ export default function BugDetailPage() {
     const [bug, setBug] = useState(location.state?.bug || null);
     const [error, setError] = useState("");
     const [loadingBug, setLoadingBug] = useState(!location.state?.bug);
+    const [myRole, setMyRole] = useState(null);
 
 
-
+    // Bug fetch — only when no location.state bug
     useEffect(() => {
         const fetchBug = async () => {
             try {
                 setLoadingBug(true);
                 const response = await api.get(`/bugs/${bugId}`);
                 setBug(response.data);
-                console.log("Fetched bug details:", response.data);
             } catch (err) {
                 console.error("Error fetching bug", err);
                 setError("Failed to load bug details");
@@ -47,8 +47,19 @@ export default function BugDetailPage() {
             }
         };
         if (!bug) fetchBug();
+    }, [bugId]);
 
-    }, [bugId, bug]);
+    useEffect(() => {
+        const fetchMyRole = async () => {
+            try {
+                const response = await api.get(`/teams/${teamId}/my-role`);
+                setMyRole(response.data.role);
+            } catch (err) {
+                console.error("Error fetching role", err);
+            }
+        };
+        fetchMyRole();
+    }, [teamId]);
 
     const handleResolveBug = async (bugId) => {
         if (!window.confirm("Are you sure you have resolved this bug?")) return;
@@ -110,7 +121,6 @@ export default function BugDetailPage() {
     const isOpen = bug?.status === "OPEN";
     const isInProgress = bug?.status === "IN_PROGRESS";
     const isAssignee = bug?.assignedTo?._id === user?.id || bug?.assigneeName === user?.name;
-
 
     if (loadingBug)
         return (
@@ -265,7 +275,7 @@ export default function BugDetailPage() {
 
                         {/* TAKE BUG — only enabled when OPEN */}
                         <button
-                            disabled={!isOpen}
+                            disabled={!isOpen || (myRole === "REPORTER")}
                             onClick={() => handleAssignBug(bug?._id)}
                             className="mt-3 sm:mt-0 flex items-center gap-2 bg-blue-600 text-white text-sm sm:text-base font-medium px-5 py-2.5 rounded-md cursor-pointer hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -275,7 +285,7 @@ export default function BugDetailPage() {
 
                         {/* RESOLVE — only enabled when IN_PROGRESS and current user is assignee */}
                         <button
-                            disabled={!isInProgress || !isAssignee}
+                            disabled={!isInProgress || (!isAssignee && myRole !== "ADMIN")}
                             onClick={() => handleResolveBug(bug?._id)}
                             className="mt-3 sm:mt-0 flex items-center gap-2 bg-green-600 text-white text-sm sm:text-base font-medium px-5 py-2.5 rounded-md cursor-pointer hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -285,7 +295,7 @@ export default function BugDetailPage() {
 
                         {/* DROP BUG — only enabled when IN_PROGRESS and current user is assignee */}
                         <button
-                            disabled={!isInProgress || !isAssignee}
+                            disabled={!isInProgress || (!isAssignee && myRole !== "ADMIN")}
                             onClick={() => handleDropBug(bug?._id)}
                             className="mt-3 sm:mt-0 flex items-center gap-2 bg-amber-500 text-white text-sm sm:text-base font-medium px-5 py-2.5 rounded-md cursor-pointer hover:bg-amber-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >

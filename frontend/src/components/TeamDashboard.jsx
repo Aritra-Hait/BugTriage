@@ -2,9 +2,10 @@ import React from "react";
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation, useNavigate, Link } from "react-router-dom";
 import api from "../axios.js";
-import { Bug, Check, Trash2, Copy, ArrowLeftIcon, UserCheck, XCircle } from "lucide-react";
+import { Bug, Check, Trash2, Copy, ArrowLeftIcon, UserCheck, XCircle, Users } from "lucide-react";
 import Navbar from "./Navbar.jsx";
 import toast from "react-hot-toast";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const severityStyles = {
     CRITICAL: "bg-red-100 text-red-700 border border-red-200",
@@ -13,11 +14,18 @@ const severityStyles = {
     LOW: "bg-green-100 text-green-700 border border-green-200",
 };
 
+const roleStyles = {
+    ADMIN: "bg-purple-100 text-purple-700 border border-purple-200",
+    DEVELOPER: "bg-blue-100 text-blue-700 border border-blue-200",
+    REPORTER: "bg-red-100 text-red-700 border border-red-200"
+};
+
 const TeamDashboard = () => {
 
     const { teamId } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
+    const { user } = useAuth();
 
     const [team, setTeam] = useState(location.state?.team || null);
     const [bugs, setBugs] = useState([]);
@@ -25,13 +33,33 @@ const TeamDashboard = () => {
     const [loadingTeam, setLoadingTeam] = useState(!location.state?.team);
     const [expanded, setExpanded] = useState(false);
 
+    const [myRole, setMyRole] = useState(null);
+
+    // Team fetch — only on teamId change
+    useEffect(() => {
+        if (!team) {
+            const fetchTeam = async () => {
+                try {
+                    setLoadingTeam(true);
+                    const response = await api.get(`/teams/${teamId}`);
+                    setTeam(response.data);
+                } catch (err) {
+                    console.error("Error fetching team", err);
+                    toast.error("Failed to load team");
+                } finally {
+                    setLoadingTeam(false);
+                }
+            };
+            fetchTeam();
+        }
+    }, [teamId]);
+
     useEffect(() => {
         const fetchBugs = async () => {
             try {
                 setLoadingBugs(true);
                 const response = await api.get(`/bugs/?teamId=${teamId}`);
                 setBugs(response.data || []);
-                // console.log("Fetched bugs:", response.data);
             } catch (err) {
                 console.error("Error fetching team bugs", err);
                 toast.error("Failed to load bugs");
@@ -40,22 +68,18 @@ const TeamDashboard = () => {
             }
         };
 
-        const fetchTeam = async () => {
+        const fetchMyRole = async () => {
             try {
-                setLoadingTeam(true);
-                const response = await api.get(`/teams/${teamId}`);
-                setTeam(response.data);
+                const response = await api.get(`/teams/${teamId}/my-role`);
+                setMyRole(response.data.role);
             } catch (err) {
-                console.error("Error fetching team", err);
-                toast.error("Failed to load team");
-            } finally {
-                setLoadingTeam(false);
+                console.error("Error fetching role", err);
             }
         };
 
-        if (!team) fetchTeam();
         fetchBugs();
-    }, [teamId, team]);
+        fetchMyRole();
+    }, [teamId]);
 
     const openBugs = useMemo(() => bugs.filter(bug => bug.status === "OPEN"), [bugs]);
     const inProgressBugs = useMemo(() => bugs.filter(bug => bug.status === "IN_PROGRESS"), [bugs]);
@@ -111,8 +135,8 @@ const TeamDashboard = () => {
                 bug._id === bugId ? { ...bug, ...data } : bug
             ));
         } catch (err) {
-            toast.error("Failed to drop bug");
             console.error("Error dropping bug", err);
+            toast.error("Failed to drop bug");
         }
     };
 
@@ -137,7 +161,7 @@ const TeamDashboard = () => {
             navigate("/home");
         } catch (err) {
             console.error("Error leaving team", err);
-            toast.error("Failed to leave team");
+            toast.error(err.response?.data?.message || "Failed to leave team");
         }
     };
 
@@ -195,7 +219,12 @@ const TeamDashboard = () => {
 
 
                     <div className="flex flex-wrap items-center gap-3">
-
+                        {/* ROLE BADGE */}
+                        {myRole && (
+                            <span className={`text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-md ${roleStyles[myRole]}`}>
+                                {myRole}
+                            </span>
+                        )}
                         <div className="flex items-center gap-2 bg-slate-100 px-3 py-2 rounded-md text-xs sm:text-sm text-slate-700">
 
                             Join Code
@@ -216,6 +245,15 @@ const TeamDashboard = () => {
                             </div>
 
                         </div>
+
+                        {/* MEMBERS BUTTON */}
+                        <Link
+                            to={`/teams/${teamId}/members`}
+                            className="flex items-center gap-2 bg-slate-700 text-white text-xs sm:text-sm font-medium px-3 sm:px-4 py-2 rounded-md hover:bg-slate-900 transition"
+                        >
+                            <Users className="w-4 h-4" />
+                            Members
+                        </Link>
 
                         <Link
                             to={`/teams/${teamId}/bugs/report`}
@@ -303,9 +341,13 @@ const TeamDashboard = () => {
                                 <div className="col-span-2 flex justify-center gap-2 sm:gap-4">
 
                                     <div className="relative group">
+
                                         <button
                                             onClick={() => handleAssignBug(bug._id)}
-                                            className="p-2 rounded-md hover:cursor-pointer hover:bg-blue-100 hover:text-blue-800 text-blue-600 transition"
+                                            disabled={myRole === "REPORTER"}
+                                            className="p-2 rounded-md hover:cursor-pointer hover:bg-blue-100
+    hover:text-blue-800 text-blue-600 transition
+    disabled:opacity-40 disabled:cursor-not-allowed"
                                         >
                                             <UserCheck className="w-4 h-4" />
                                         </button>
@@ -384,57 +426,64 @@ bg-slate-800 text-white text-xs px-2 py-1 rounded transition">
                             </div>
                         )}
 
-                        {inProgressBugs.map((bug) => (
-                            <div
-                                key={bug._id}
-                                className="grid grid-cols-12 px-4 sm:px-6 py-4 items-center border-b border-slate-100 hover:bg-slate-50 transition text-xs sm:text-sm min-w-[150px]"
-                            >
+                        {inProgressBugs.map((bug) => {
+                            const isAssignee = bug.assigneeName === user?.name;
+                            const canAct = myRole === "ADMIN" || isAssignee;
+                            return (
 
-                                <Link to={`/teams/${teamId}/bug/${bug._id}`} state={{ bug }} className="col-span-3 sm:col-span-5 text-slate-900 font-medium">
-                                    {bug.title}
-                                </Link>
+                                <div
+                                    key={bug._id}
+                                    className="grid grid-cols-12 px-4 sm:px-6 py-4 items-center border-b border-slate-100 hover:bg-slate-50 transition text-xs sm:text-sm min-w-[150px]"
+                                >
 
-                                <div className="col-span-3 sm:col-span-2">
-                                    <span className={`text-xs px-2 py-1 rounded font-medium ${severityStyles[bug.severity]}`}>
-                                        {bug.severity}
-                                    </span>
-                                </div>
+                                    <Link to={`/teams/${teamId}/bug/${bug._id}`} state={{ bug }} className="col-span-3 sm:col-span-5 text-slate-900 font-medium">
+                                        {bug.title}
+                                    </Link>
 
-                                <div className="col-span-3 sm:col-span-3 text-slate-800 font-medium">
-                                    {bug.assigneeName}
-                                </div>
-
-                                <div className="col-span-2 flex justify-center gap-2 sm:gap-4">
-
-                                    <div className="relative group">
-                                        <button
-                                            onClick={() => handleResolveBug(bug._id)}
-                                            className="p-2 rounded-md hover:cursor-pointer hover:bg-green-100 hover:text-green-800 text-green-600 transition"
-                                        >
-                                            <Check className="w-4 h-4" />
-                                        </button>
-                                        <span className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 whitespace-nowrap
-bg-slate-800 text-white text-xs px-2 py-1 rounded transition">
-                                            Mark bug as resolved
+                                    <div className="col-span-3 sm:col-span-2">
+                                        <span className={`text-xs px-2 py-1 rounded font-medium ${severityStyles[bug.severity]}`}>
+                                            {bug.severity}
                                         </span>
                                     </div>
 
-                                    <div className="relative group">
-                                        <button
-                                            onClick={() => handleDropBug(bug._id)}
-                                            className="p-2 rounded-md hover:bg-red-100 hover:cursor-pointer text-red-600 transition"
-                                        >
-                                            <XCircle className="w-4 h-4" />
-                                        </button>
-                                        <span className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 whitespace-nowrap
-bg-slate-800 text-white text-xs px-2 py-1 rounded transition">
-                                            Drop bug
-                                        </span>
+                                    <div className="col-span-3 sm:col-span-3 text-slate-800 font-medium">
+                                        {bug.assigneeName}
                                     </div>
 
+                                    <div className="col-span-2 flex justify-center gap-2 sm:gap-4">
+
+                                        <div className="relative group">
+                                            <button
+                                                onClick={() => handleResolveBug(bug._id)}
+                                                disabled={!canAct}
+                                                className="p-2 rounded-md hover:cursor-pointer hover:bg-green-100 hover:text-green-800 text-green-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                                            >
+                                                <Check className="w-4 h-4" />
+                                            </button>
+                                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 whitespace-nowrap
+bg-slate-800 text-white text-xs px-2 py-1 rounded transition">
+                                                Mark bug as resolved
+                                            </span>
+                                        </div>
+
+                                        <div className="relative group">
+                                            <button
+                                                onClick={() => handleDropBug(bug._id)}
+                                                disabled={!canAct}
+                                                className="p-2 rounded-md hover:bg-red-100 hover:cursor-pointer text-red-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                                            >
+                                                <XCircle className="w-4 h-4" />
+                                            </button>
+                                            <span className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 whitespace-nowrap
+bg-slate-800 text-white text-xs px-2 py-1 rounded transition">
+                                                Drop bug
+                                            </span>
+                                        </div>
+
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
 
                     </div>
 
@@ -530,7 +579,7 @@ bg-slate-800 text-white text-xs px-2 py-1 rounded transition">
 
             </div>
 
-        </div>
+        </div >
     );
 };
 

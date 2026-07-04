@@ -10,6 +10,11 @@ const TeamMembershipSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Team",
         required: true
+    },
+    role: {
+        type: String,
+        enum: ["ADMIN", "DEVELOPER", "REPORTER"],
+        default: "REPORTER"
     }
 }, { timestamps: true });
 

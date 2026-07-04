@@ -2,15 +2,8 @@ import Bug from "../models/Bug.js";
 import TeamMembership from "../models/TeamMembership.js";
 import User from "../models/User.js";
 import { calculatePriority } from "../utils/calculatePriority.js";
+import { getMembership } from "../utils/getMembership.js";
 import mongoose from "mongoose";
-
-const isUserInTeam = async (userId, teamId) => {
-    return await TeamMembership.exists({
-        userId: new mongoose.Types.ObjectId(userId),
-        teamId: new mongoose.Types.ObjectId(teamId)
-    });
-};
-
 
 export const createBug = async (req, res) => {
     try {
@@ -20,8 +13,8 @@ export const createBug = async (req, res) => {
         const userId = req.user.id;
 
         // Check team access
-        const allowed = await isUserInTeam(userId, teamId);
-        if (!allowed) {
+        const membership = await getMembership(userId, teamId);
+        if (!membership) {
             return res.status(403).json({ message: "Not a member of this team" });
         }
 
@@ -45,8 +38,8 @@ export const getBugsForTeam = async (req, res) => {
         const teamId = req.query.teamId;
         const userId = req.user.id;
 
-        const allowed = await isUserInTeam(userId, teamId);
-        if (!allowed) {
+        const membership = await getMembership(userId, teamId);
+        if (!membership) {
             return res.status(403).json({ message: "Not a member of this team" });
         }
 
@@ -94,8 +87,8 @@ export const getBug = async (req, res) => {
             return res.status(404).json({ message: "Bug not found" });
         }
 
-        const allowed = await isUserInTeam(userId, bug.teamId);
-        if (!allowed) {
+        const membership = await getMembership(userId, bug.teamId);
+        if (!membership) {
             return res.status(403).json({ message: "Not authorized to view this bug" });
         }
 
@@ -126,13 +119,18 @@ export const resolveBug = async (req, res) => {
         }
 
         // Check team access
-        const allowed = await isUserInTeam(userId, bug.teamId);
-        if (!allowed) {
-            return res.status(403).json({ message: "Not authorized" });
+        const membership = await getMembership(userId, bug.teamId);
+        if (!membership) {
+            return res.status(403).json({ message: "Not a member of this team" });
         }
 
-        // Only assigned developer can resolve
-        if (!bug.assignedTo || !bug.assignedTo.equals(userId)) {
+        if (!["DEVELOPER", "ADMIN"].includes(membership.role)) {
+            return res.status(403).json({ message: "Only developers or admins can resolve bugs" });
+        }
+
+        // Admin can resolve any bug; developer only their own assigned bug
+        const isAssignee = bug.assignedTo && bug.assignedTo.equals(userId);
+        if (membership.role === "DEVELOPER" && !isAssignee) {
             return res.status(403).json({ message: "Only the assigned developer can resolve this bug" });
         }
 
@@ -161,9 +159,14 @@ export const assignBug = async (req, res) => {
             return res.status(404).json({ message: "Bug not found" });
         }
 
-        const allowed = await isUserInTeam(userId, bug.teamId);
-        if (!allowed) {
+        const membership = await getMembership(userId, bug.teamId);
+        if (!membership) {
             return res.status(403).json({ message: "Not a member of this team" });
+        }
+
+        // Only DEVELOPER or ADMIN can take bugs
+        if (!["DEVELOPER", "ADMIN"].includes(membership.role)) {
+            return res.status(403).json({ message: "Only developers or admins can take bugs" });
         }
 
         if (bug.status !== "OPEN") {
@@ -199,11 +202,18 @@ export const unassignBug = async (req, res) => {
         const bug = await Bug.findById(bugId);
         if (!bug) return res.status(404).json({ message: "Bug not found" });
 
-        const allowed = await isUserInTeam(userId, bug.teamId);
-        if (!allowed) return res.status(403).json({ message: "Not authorized" });
+        const membership = await getMembership(userId, bug.teamId);
+        if (!membership) {
+            return res.status(403).json({ message: "Not a member of this team" });
+        }
 
-        // Only the assigned developer can drop the bug
-        if (!bug.assignedTo || !bug.assignedTo.equals(userId)) {
+        if (!["DEVELOPER", "ADMIN"].includes(membership.role)) {
+            return res.status(403).json({ message: "Only developers or admins can drop bugs" });
+        }
+
+        // Only the admin or assigned developer can drop the bug
+        const isAssignee = bug.assignedTo && bug.assignedTo.equals(userId);
+        if (membership.role === "DEVELOPER" && !isAssignee) {
             return res.status(403).json({ message: "Only the assigned developer can drop this bug" });
         }
 
@@ -243,14 +253,15 @@ export const deleteBug = async (req, res) => {
         }
 
         // Check team access
-        const allowed = await isUserInTeam(userId, bug.teamId);
-        if (!allowed) {
-            return res.status(403).json({ message: "Not authorized" });
+        const membership = await getMembership(userId, bug.teamId);
+        if (!membership) {
+            return res.status(403).json({ message: "Not a member of this team" });
         }
 
-        // Only reporter can delete
-        if (!bug.reportedBy.equals(userId)) {
-            return res.status(403).json({ message: "Only reporter can delete bug" });
+        // Reporter can delete their own bug, ADMIN can delete any
+        const isReporter = bug.reportedBy.equals(userId);
+        if (!isReporter && membership.role !== "ADMIN") {
+            return res.status(403).json({ message: "Only reporter or admin can delete bug" });
         }
 
         await Bug.deleteOne({ _id: bugId });

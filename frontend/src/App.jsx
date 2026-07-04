@@ -10,7 +10,9 @@ import JoinTeam from './pages/JoinTeam.jsx'
 import TeamDashboard from './components/TeamDashboard.jsx'
 import ReportBug from './pages/ReportBug.jsx'
 import BugDetails from './components/BugDetailPage.jsx'
+import TeamMembers from './pages/TeamMembers.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
+
 const App = () => {
   return (
 
@@ -27,6 +29,7 @@ const App = () => {
         <Route path="/teams/:teamId/*" element={<TeamDashboard />} />
         <Route path="/teams/:teamId/bugs/report" element={<ReportBug />} />
         <Route path="/teams/:teamId/bug/:bugId" element={<BugDetails />} />
+        <Route path="/teams/:teamId/members" element={<TeamMembers />} />
       </Route>
     </Routes>
 
